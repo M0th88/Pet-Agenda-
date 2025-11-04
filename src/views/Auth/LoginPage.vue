@@ -1,7 +1,8 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '@/store/UserStore';
+// CORRECCIÓN: Añadido .js al final
+import { useUserStore } from '@/store/UserStore.js';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -18,6 +19,7 @@ const handleLogin = async () => {
     router.push({ name: 'Dashboard' }); 
   } else {
     // Muestra un mensaje de error (manejo de errores muy simple)
+    // ¡NUNCA USES alert() en producción! Lo cambiaremos después.
     alert(userStore.error);
   }
 };
@@ -77,3 +79,4 @@ const handleLogin = async () => {
     </div>
   </div>
 </template>
+

@@ -73,13 +73,23 @@ export const usePetStore = defineStore('pet', {
         };
         this.pets.push(newPet);
         // ------------------
+        
+        // *** CAMBIO: Añadido explícitamente ***
+        this.isLoading = false; 
 
       } catch (err) {
         this.error = 'Error al crear la mascota.';
         console.error(err);
+        
+        // *** CAMBIO: Añadido explícitamente ***
+        this.isLoading = false; 
+        
       } finally {
+        // Lo mantenemos aquí por si acaso
         this.isLoading = false;
       }
     },
   },
 });
+// La llave "}" extra que estaba aquí ha sido eliminada.
+

@@ -1,8 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserStore } from '../../store/UserStore.js'; // Ruta relativa
-import { usePetStore } from '../../store/PetStore.js'; // Ruta relativa
+// Usamos los alias que ya configuraste (¡recuerda añadir .js!)
+import { useUserStore } from '@/store/UserStore.js'; 
+import { usePetStore } from '@/store/PetStore.js'; 
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -32,6 +33,7 @@ const handleLogout = () => {
 // Función para manejar el envío del formulario
 const handleAddPet = async () => {
   if (!newPetForm.value.name || !newPetForm.value.species) {
+    // Reemplazaremos esto por un modal de error más adelante
     alert('Nombre y Especie son obligatorios.');
     return;
   }
@@ -47,6 +49,7 @@ const handleAddPet = async () => {
 <template>
   <div class="min-h-screen bg-gray-100">
     
+    <!-- Header/Navegación -->
     <header class="bg-white shadow-md">
       <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-indigo-600">
@@ -66,6 +69,7 @@ const handleAddPet = async () => {
       </nav>
     </header>
 
+    <!-- Contenido Principal -->
     <main class="container mx-auto px-6 py-8">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-3xl font-semibold text-gray-800">
@@ -79,6 +83,7 @@ const handleAddPet = async () => {
         </button>
       </div>
 
+      <!-- Lista de Mascotas (Aquí está la cadena v-if/v-else-if/v-else) -->
       <div v-if="petStore.isLoading" class="text-center text-gray-600">
         Cargando mascotas...
       </div>
@@ -88,20 +93,23 @@ const handleAddPet = async () => {
       </div>
 
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div 
+        <!-- Envolvemos la tarjeta en un router-link -->
+        <router-link 
           v-for="pet in petStore.pets" 
           :key="pet.id" 
-          class="bg-white rounded-lg shadow-lg overflow-hidden transition-transform transform hover:scale-105"
+          :to="{ name: 'PetDetail', params: { id: pet.id } }"
+          class="block bg-white rounded-lg shadow-lg overflow-hidden transition-transform transform hover:scale-105 hover:shadow-xl"
         >
           <div class="p-6">
             <h3 class="text-2xl font-bold text-gray-900">{{ pet.name }}</h3>
             <p class="text-indigo-500 font-medium">{{ pet.species }}</p>
             <p class="text-gray-600">{{ pet.breed }}</p>
           </div>
-        </div>
+        </router-link>
       </div>
     </main>
 
+    <!-- Modal para Añadir Mascota -->
     <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
         <h3 class="text-2xl font-bold mb-6 text-gray-800">Nueva Mascota</h3>
@@ -127,6 +135,7 @@ const handleAddPet = async () => {
             <input v-model="newPetForm.breed" id="petBreed" type="text" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
           </div>
           
+          <!-- Botones del Modal -->
           <div class="flex justify-end space-x-4 pt-4">
             <button 
               type="button" 
@@ -149,3 +158,4 @@ const handleAddPet = async () => {
 
   </div>
 </template>
+
