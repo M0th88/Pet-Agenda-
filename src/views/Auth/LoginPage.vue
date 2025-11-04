@@ -8,20 +8,22 @@ const router = useRouter();
 const userStore = useUserStore();
 
 // Campos del formulario
-const email = ref('test@petagenda.com'); // Valor pre-rellenado para simulación
+const email = ref('admin@petagenda.com'); // Valor pre-rellenado para admin
 const password = ref('password');
 
 const handleLogin = async () => {
   const success = await userStore.login(email.value, password.value);
   
   if (success) {
-    // Si el login es exitoso, redirige al Dashboard
-    router.push({ name: 'Dashboard' }); 
-  } else {
-    // Muestra un mensaje de error (manejo de errores muy simple)
-    // ¡NUNCA USES alert() en producción! Lo cambiaremos después.
-    alert(userStore.error);
-  }
+    // *** ¡LÓGICA DE REDIRECCIÓN ACTUALIZADA! ***
+    // Verificamos si el usuario que inició sesión es admin
+    if (userStore.isAdmin) {
+      router.push({ name: 'AdminDashboard' });
+    } else {
+      router.push({ name: 'Dashboard' }); 
+    }
+  } 
+  // El manejo de errores 'else' se queda igual
 };
 </script>
 
@@ -72,11 +74,9 @@ const handleLogin = async () => {
         </router-link>
       </p>
       
-      <!-- Mensaje de error simple -->
-      <div v-if="userStore.error" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+      <div v-if="userStore.error && !userStore.isLoading" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
           {{ userStore.error }}
       </div>
     </div>
   </div>
 </template>
-

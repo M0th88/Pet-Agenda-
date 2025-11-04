@@ -1,94 +1,80 @@
 import { defineStore } from 'pinia';
 
-// Simulación de un token JWT
-// En un backend real, este token vendría de la respuesta del servidor al hacer login
-const FAKE_AUTH_TOKEN = 'jwt-fake-token-12345'; 
+// Definimos la URL de tu backend
+const API_URL = 'http://localhost:3000/api';
 
+// ¡Esta es la exportación que te falta!
 export const useUserStore = defineStore('user', {
   state: () => ({
-    // El token se almacena en localStorage para simular persistencia
+    // Leemos los datos de la sesión guardada en el navegador
     token: localStorage.getItem('userToken') || null, 
-    user: null, // Objeto del usuario logeado
+    user: JSON.parse(localStorage.getItem('userData')) || null,
     isLoading: false,
     error: null,
   }),
   
   getters: {
-    // Getter para saber si el usuario está autenticado
     isAuthenticated: (state) => !!state.token,
-    
-    // Si queremos obtener el ID del usuario, por ejemplo
     userId: (state) => state.user ? state.user.id : null,
+    isAdmin: (state) => state.user?.role === 'admin',
   },
   
   actions: {
-    // *** 1. Acción de LOGIN (Simulada) ***
+    // Acción de LOGIN conectada
     async login(email, password) {
       this.isLoading = true;
       this.error = null;
       
       try {
-        // En un proyecto real, aquí harías una llamada POST a tu backend
-        // const response = await axios.post('/api/auth/login', { email, password });
-        
-        // --- SIMULACIÓN ---
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simula un delay de red
-        if (email === 'test@petagenda.com' && password === 'password') {
-            const token = FAKE_AUTH_TOKEN;
-            const userData = { id: 1, name: 'Dueño de Prueba', email: email };
+        const response = await fetch(`${API_URL}/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
 
-            this.token = token;
-            this.user = userData;
-            
-            // Guardar el token en localStorage para mantener la sesión
-            localStorage.setItem('userToken', token);
-            return true; // Login exitoso
-        } else {
-            throw new Error('Credenciales inválidas (Simulación)');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Error al iniciar sesión');
         }
-        // ------------------
+
+        this.token = data.token;
+        this.user = data.user;
+        
+        localStorage.setItem('userToken', data.token);
+        localStorage.setItem('userData', JSON.stringify(data.user));
+        
+        return true; // Login exitoso
+
       } catch (err) {
-        this.error = err.message || 'Error desconocido al iniciar sesión';
+        this.error = err.message;
         this.token = null;
         this.user = null;
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('userData');
         return false; // Login fallido
       } finally {
         this.isLoading = false;
       }
     },
     
-    // *** 2. Acción de LOGOUT ***
+    // Acción de LOGOUT
     logout() {
       this.token = null;
       this.user = null;
       localStorage.removeItem('userToken');
-      // Redirigir al usuario (esto lo haremos en el componente)
+      localStorage.removeItem('userData');
     },
 
-    // *** 3. Acción para cargar datos del usuario al recargar la página ***
-    async loadUserFromToken() {
-        if (!this.token) return;
-
-        this.isLoading = true;
-        
-        try {
-            // En un proyecto real, usarías el token guardado para pedir
-            // los datos del usuario al backend.
-            // const response = await axios.get('/api/auth/me', {
-            //     headers: { Authorization: `Bearer ${this.token}` }
-            // });
-            
-            // --- SIMULACIÓN (Asumiendo que el token es válido) ---
-            await new Promise(resolve => setTimeout(resolve, 500));
-            this.user = { id: 1, name: 'Dueño de Prueba', email: 'test@petagenda.com' };
-            // ------------------
-            
-        } catch (error) {
-            console.error('Token inválido o expirado. Cerrando sesión.', error);
-            this.logout(); // Si el token falla, cerramos sesión
-        } finally {
-            this.isLoading = false;
+    // Cargar usuario desde el token guardado
+    loadUserFromToken() {
+        if (!this.token || !this.user) {
+            this.logout();
+            return;
         }
+        this.isLoading = false;
     }
   }
 });
