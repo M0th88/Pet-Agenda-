@@ -1,13 +1,15 @@
 import { defineStore } from 'pinia';
 import { useUserStore } from './UserStore.js';
+
 // ¡Ya no importamos la base de datos simulada!
+// import { MOCK_PETS, simulateApiCall } from './mockDatabase.js';
 
 const API_URL = 'http://localhost:3000/api';
 
 export const usePetStore = defineStore('pet', {
   state: () => ({
     pets: [], // Mascotas del usuario logueado
-    selectedPet: null,
+    selectedPet: null, // Mascota seleccionada CON citas e historial
     isLoading: false,
     error: null,
   }),
@@ -18,6 +20,7 @@ export const usePetStore = defineStore('pet', {
 
   actions: {
     // --- ¡ACCIÓN fetchPets CONECTADA! ---
+    // (Esta ya debería estar conectada, pero la incluimos para asegurar)
     async fetchPets() {
       const userStore = useUserStore();
       if (!userStore.isAuthenticated || !userStore.user) return;
@@ -42,7 +45,7 @@ export const usePetStore = defineStore('pet', {
     },
 
     // --- ¡ACCIÓN fetchPetById CONECTADA! ---
-    // (Esta usa la ruta de admin, ya que es más potente)
+    // (Esta usa la ruta de admin, ya que es más potente y ya la tenemos)
     async fetchPetById(petId) {
       const userStore = useUserStore();
       if (!userStore.isAuthenticated) return;
@@ -52,24 +55,24 @@ export const usePetStore = defineStore('pet', {
       this.selectedPet = null;
 
       try {
-        // Usamos la ruta de admin/pets/:id que ya nos da todo
+        // 1. Usamos la ruta de admin/pets/:id que ya nos da todo
         const response = await fetch(`${API_URL}/admin/pets/${petId}`);
-        const data = await response.json();
+        const data = await response.json(); // { pet, owner, appointments, records }
         
         if (!response.ok) {
           throw new Error(data.error || 'Mascota no encontrada');
         }
 
-        // Verificamos que la mascota sea de este usuario
+        // 2. Verificamos que la mascota sea de este usuario
+        //    (¡Importante por seguridad!)
         if (data.pet.userId !== userStore.user.id) {
           this.error = 'No tienes permiso para ver esta mascota.';
           return;
         }
         
-        // Asignamos los datos para la vista de detalle del cliente
-        // Cambiamos 'selectedPet.pet' a 'selectedPet'
+        // 3. Guardamos TODOS los datos en selectedPet
         this.selectedPet = {
-          ...data.pet,
+          ...data.pet, // name, species, breed...
           appointments: data.appointments,
           records: data.records
         };

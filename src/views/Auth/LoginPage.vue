@@ -1,7 +1,6 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-// CORRECCIÓN: Añadido .js al final
 import { useUserStore } from '@/store/UserStore.js';
 
 const router = useRouter();
@@ -18,12 +17,12 @@ const handleLogin = async () => {
     // *** ¡LÓGICA DE REDIRECCIÓN ACTUALIZADA! ***
     // Verificamos si el usuario que inició sesión es admin
     if (userStore.isAdmin) {
-      router.push({ name: 'AdminDashboard' });
+      router.push({ name: 'AdminDashboard' }); // <-- Redirige al admin
     } else {
-      router.push({ name: 'Dashboard' }); 
+      router.push({ name: 'Dashboard' }); // <-- Redirige al cliente
     }
   } 
-  // El manejo de errores 'else' se queda igual
+  // El 'else' para manejo de errores se queda igual
 };
 </script>
 
