@@ -26,14 +26,32 @@ const handleLogout = () => {
 const formatDate = (dateString) => {
   if (!dateString) return 'Fecha no especificada';
   try {
+    // Usamos 'es-CL' para el formato chileno
     return new Date(dateString).toLocaleString('es-CL', {
-      dateStyle: 'long',
-      timeStyle: 'short',
-      timeZone: 'UTC' // Ajusta si es necesario
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC' // Ajusta si tus fechas se guardan/muestran con offset
     });
   } catch (e) {
     return dateString;
   }
+};
+
+const formatSimpleDate = (dateString) => {
+   if (!dateString) return 'Fecha no especificada';
+   try {
+    return new Date(dateString).toLocaleDateString('es-CL', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC'
+    });
+   } catch (e) {
+     return dateString;
+   }
 };
 </script>
 
@@ -61,7 +79,7 @@ const formatDate = (dateString) => {
 
     <main class="container mx-auto px-6 py-8">
       
-      <div v-if="petStore.isLoading" class="text-center text-gray-600 text-xl">
+      <div v-if="petStore.isLoading" class="text-center text-gray-600 text-xl py-12">
         Cargando datos de la mascota...
       </div>
 
@@ -88,7 +106,7 @@ const formatDate = (dateString) => {
           <div class="bg-white p-6 rounded-lg shadow-lg">
             <h3 class="text-2xl font-semibold mb-4 text-gray-800">Próximas Citas</h3>
             <div class="space-y-4">
-              <div v-if="!petStore.selectedPet.appointments || petStore.selectedPet.appointments.length === 0" class="text-gray-500 italic">
+              <div v-if="!petStore.selectedPet.appointments || petStore.selectedPet.appointments.length === 0" class="text-gray-500 italic p-4 text-center">
                 No hay citas agendadas.
               </div>
               <div v-else v-for="app in petStore.selectedPet.appointments" :key="app.id" class="p-4 border rounded-lg bg-gray-50">
@@ -106,11 +124,11 @@ const formatDate = (dateString) => {
           <div class="bg-white p-6 rounded-lg shadow-lg">
             <h3 class="text-2xl font-semibold mb-4 text-gray-800">Historial Médico</h3>
             <div class="space-y-4">
-              <div v-if="!petStore.selectedPet.records || petStore.selectedPet.records.length === 0" class="text-gray-500 italic">
+              <div v-if="!petStore.selectedPet.records || petStore.selectedPet.records.length === 0" class="text-gray-500 italic p-4 text-center">
                 No hay historial médico.
               </div>
               <div v-else v-for="rec in petStore.selectedPet.records" :key="rec.id" class="p-4 border rounded-lg bg-gray-50">
-                <p><strong>Fecha:</strong> {{ new Date(rec.date).toLocaleDateString('es-CL', { timeZone: 'UTC' }) }}</p>
+                <p><strong>Fecha:</strong> {{ formatSimpleDate(rec.date) }}</p>
                 <p><strong>Tipo:</strong> 
                   <span class="font-medium" :class="rec.type === 'Vacuna' ? 'text-green-600' : 'text-blue-600'">
                     {{ rec.type }}

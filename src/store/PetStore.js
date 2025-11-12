@@ -20,7 +20,6 @@ export const usePetStore = defineStore('pet', {
 
   actions: {
     // --- ¡ACCIÓN fetchPets CONECTADA! ---
-    // (Esta ya debería estar conectada, pero la incluimos para asegurar)
     async fetchPets() {
       const userStore = useUserStore();
       if (!userStore.isAuthenticated || !userStore.user) return;
