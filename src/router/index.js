@@ -5,14 +5,25 @@ import { useUserStore } from '../store/UserStore.js';
 
 // Vistas que usaremos
 const routes = [
+  // 1. NUEVA RUTA RAÍZ: LANDING PAGE (Pública)
   {
     path: '/',
-    name: 'Dashboard', // Vista del Cliente
+    name: 'Landing',
+    component: () => import('../views/LandingPage.vue'),
+    // No tiene 'meta: { requiresAuth: true }' porque es pública
+  },
+
+  // 2. DASHBOARD DEL CLIENTE (Movido a /dashboard)
+  {
+    path: '/dashboard',
+    name: 'Dashboard', 
     component: () => import('../views/Pets/DashboardPage.vue'), 
     meta: { requiresAuth: true } // CLAVE: Solo autenticados
   },
+
+  // Detalle de mascota (Cliente)
   {
-    path: '/pet/:id', // Vista de Cliente para detalle de mascota
+    path: '/pet/:id', 
     name: 'PetDetail',
     component: () => import('../views/Pets/PetDetailPage.vue'),
     meta: { requiresAuth: true }
@@ -33,6 +44,7 @@ const routes = [
   },
   // --- FIN RUTAS ADMIN ---
 
+  // --- AUTENTICACIÓN ---
   {
     path: '/login',
     name: 'Login',
@@ -62,15 +74,13 @@ router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
   
   // 1. Cargar datos del usuario si hay un token (solo al iniciar la app)
-  // (Esta lógica se simplificó en UserStore, pero la dejamos por si acaso)
   if (!userStore.user && userStore.token) {
-    // En la versión modificada, el user se carga desde localStorage en el state.
-    // Si quisiéramos validar el token, llamaríamos:
+    // Lógica de carga de usuario si fuera necesaria
     // await userStore.loadUserFromToken(); 
   }
 
   const isAuthenticated = userStore.isAuthenticated;
-  const isAdmin = userStore.isAdmin; // Usamos el nuevo getter
+  const isAdmin = userStore.isAdmin; 
   
   // 2. Comprobar si la ruta requiere ser ADMIN
   if (to.meta.requiresAdmin && !isAdmin) {
@@ -86,9 +96,13 @@ router.beforeEach(async (to, from, next) => {
   } 
   // 4. Comprobar si la ruta requiere ser invitado (ej: Login, Register)
   else if (to.meta.requiresGuest && isAuthenticated) {
-    // Si está logeado e intenta acceder a Login/Register, lo mandamos al Dashboard
-    console.warn('Usuario autenticado intentando acceder a ruta de invitado. Redirigiendo a Dashboard.');
-    next({ name: 'Dashboard' });
+    // Si está logeado e intenta acceder a Login/Register, lo mandamos a su Dashboard correspondiente
+    console.warn('Usuario autenticado intentando acceder a ruta de invitado.');
+    if (isAdmin) {
+      next({ name: 'AdminDashboard' });
+    } else {
+      next({ name: 'Dashboard' });
+    }
   } 
   // 5. Si pasa todas las comprobaciones, continuamos
   else {

@@ -6,54 +6,52 @@ import { useUserStore } from '@/store/UserStore.js';
 const router = useRouter();
 const userStore = useUserStore();
 
-// Campos del formulario
-// Dejamos los valores por defecto que tenías para facilitar las pruebas
 const email = ref('admin@petagenda.com'); 
 const password = ref('password');
 
 const handleLogin = async () => {
-  // Esta lógica de login y redirección por rol es la misma que tenías
-  // y es correcta.
-  const success = await userStore.login(email.value, password.value);
-  
-  if (success) {
-    if (userStore.isAdmin) {
-      router.push({ name: 'AdminDashboard' }); // <-- Redirige al admin
-    } else {
-      router.push({ name: 'Dashboard' }); // <-- Redirige al cliente
-    }
-  } 
-  // El store se encarga de gestionar el error
+  const success = await userStore.login(email.value, password.value);
+  
+  if (success) {
+    if (userStore.isAdmin) {
+      router.push({ name: 'AdminDashboard' });
+    } else {
+      router.push({ name: 'Dashboard' });
+    }
+  } 
 };
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+  <div 
+    class="min-h-screen flex items-center justify-center p-4 font-sans relative bg-cover bg-center bg-no-repeat"
+    style="background-image: url('/fondo_login.jpg');"
+  >
     
-    <div class="flex w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden m-auto">
+    <div class="absolute inset-0 bg-black/70 z-0"></div>
 
-      <div class="w-1/2 hidden md:block">
+    <div class="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 p-10 md:p-12">
         
-        <img 
-          src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=1000&q=80" 
-          alt="Perro en clínica veterinaria"
-          class="h-full w-full object-cover"
-        >
-      </div>
+        <div class="mb-8 text-center">
+           
+           <img 
+             src="/logo.png" 
+             alt="Logo PetAgenda" 
+             class="h-24 mx-auto mb-4 drop-shadow-sm hover:scale-105 transition-transform duration-300"
+           >
 
-      <div class="w-full md:w-1/2 bg-white p-10 md:p-14">
-        
-        <h2 class="text-3xl font-bold text-center text-gray-800 mb-2">
-          Inicia Sesión
-        </h2>
-        <p class="text-center text-gray-500 mb-8">
-          ¡Bienvenido de vuelta! Por favor, ingresa tus datos.
-        </p>
+           <h2 class="text-3xl font-extrabold text-gray-800">
+            Inicia Sesión
+          </h2>
+          <p class="text-gray-500 mt-2 font-medium">
+            Bienvenido a PetAgenda
+          </p>
+        </div>
 
-        <form @submit.prevent="handleLogin" class="space-y-5">
+        <form @submit.prevent="handleLogin" class="space-y-6">
           
           <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="email" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
               Email
             </label>
             <div class="relative">
@@ -69,13 +67,13 @@ const handleLogin = async () => {
                 v-model="email" 
                 required
                 placeholder="tu@email.com"
-                class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                class="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EF6532] focus:border-transparent transition-all font-medium text-gray-800"
               >
             </div>
           </div>
 
           <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="password" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
               Contraseña
             </label>
             <div class="relative">
@@ -90,39 +88,26 @@ const handleLogin = async () => {
                 v-model="password" 
                 required
                 placeholder="••••••••"
-                class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                class="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EF6532] focus:border-transparent transition-all font-medium text-gray-800"
               >
             </div>
           </div>
 
-          <div class="text-right">
-            <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
-
+        
           <button 
             type="submit"
             :disabled="userStore.isLoading"
-            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:bg-indigo-400"
+            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-[#B63101] hover:bg-[#902701] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EF6532] transition duration-200 ease-in-out disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-95 tracking-wide"
           >
             <span v-if="userStore.isLoading">Iniciando Sesión...</span>
-            <span v-else>Iniciar Sesión</span>
+            <span v-else>INICIAR SESIÓN</span>
           </button>
         </form>
         
-        <p class="mt-8 text-center text-sm text-gray-600">
-          ¿No tienes una cuenta? 
-          <router-link to="/register" class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
-            Regístrate
-          </router-link>
-        </p>
-        
-        <div v-if="userStore.error && !userStore.isLoading" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center">
+        <div v-if="userStore.error && !userStore.isLoading" class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg text-sm text-center font-bold">
           {{ userStore.error }}
         </div>
 
-      </div>
     </div>
   </div>
 </template>
