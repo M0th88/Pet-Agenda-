@@ -8,23 +8,24 @@ const router = useRouter();
 const userStore = useUserStore();
 const adminStore = useAdminStore();
 
-// --- Lógica para modal "Añadir Cliente" ---
+// --- Estados de Modales ---
 const showAddClientModal = ref(false);
 const newClientForm = ref({ name: '', email: '', password: '' });
 
-// --- Lógica para modal "Añadir Mascota" ---
 const showAddPetModal = ref(false);
 const currentClientId = ref(null);
 const newPetForm = ref({ name: '', species: 'Perro', breed: '' });
 
-// --- Lógica para modal "Editar Cliente" ---
 const showEditClientModal = ref(false);
 const editingClient = ref({ id: null, name: '', email: '' });
 
-// --- Lógica para modal "Editar Mascota" ---
 const showEditPetModal = ref(false);
 const editingPet = ref({ id: null, userId: null, name: '', species: '', breed: '' });
 
+// Helper visual para avatares
+const getInitials = (name) => {
+  return name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'CL';
+};
 
 onMounted(() => {
   adminStore.fetchAllData();
@@ -35,412 +36,388 @@ const handleLogout = () => {
   router.push({ name: 'Login' });
 };
 
-// --- (Función para añadir cliente) ---
+// --- Acciones de Cliente ---
 const handleAddClient = async () => {
   if (!newClientForm.value.name || !newClientForm.value.email || !newClientForm.value.password) {
-    adminStore.error = 'Nombre, email y contraseña son obligatorios.';
+    adminStore.error = 'Todos los campos son obligatorios.';
     return;
   };
-  
   try {
     await adminStore.createClient(newClientForm.value);
-    // Si la acción del store fue exitosa (no lanzó error), cerramos el modal
     showAddClientModal.value = false;
     newClientForm.value = { name: '', email: '', password: '' };
   } catch (error) {
-    // El error ya es manejado y asignado en el store,
-    // así que se mostrará en el modal. Solo logueamos en consola.
-    console.error("Error al crear cliente:", error.message);
+    console.error(error);
   }
 };
 
-// --- (Función para abrir modal de mascota) ---
-const openAddPetModal = (clientId) => {
-  adminStore.error = null; // Limpiamos errores de otros modales
-  currentClientId.value = clientId;
-  newPetForm.value = { name: '', species: 'Perro', breed: '' };
-  showAddPetModal.value = true;
-};
-
-// --- (Función para añadir mascota) ---
-const handleAddPet = async () => {
-  if (!newPetForm.value.name || !currentClientId.value) return;
-  
-  try {
-    await adminStore.createPetForClient(newPetForm.value, currentClientId.value);
-    // Si no hay error, cerramos modal
-    showAddPetModal.value = false;
-    currentClientId.value = null;
-  } catch (error) {
-    console.error("Error al añadir mascota:", error.message);
-  }
-};
-
-// --- (Función para abrir modal de edición de cliente) ---
 const openEditModal = (client) => {
   editingClient.value = { id: client.id, name: client.name, email: client.email };
   adminStore.error = null;
   showEditClientModal.value = true;
 };
 
-// --- (Función para guardar edición de cliente) ---
 const handleUpdateClient = async () => {
-  if (!editingClient.value.id || !editingClient.value.name || !editingClient.value.email) {
-    return;
-  }
-  
+  if (!editingClient.value.id) return;
   try {
     const success = await adminStore.updateClient(editingClient.value.id, {
       name: editingClient.value.name,
       email: editingClient.value.email
     });
-
-    if (success) {
-      showEditClientModal.value = false;
-      editingClient.value = { id: null, name: '', email: '' };
-    }
-  } catch (error) {
-    console.error("Error al actualizar cliente:", error.message);
-  }
+    if (success) showEditClientModal.value = false;
+  } catch (error) { console.error(error); }
 };
 
-// --- (Función para eliminar cliente) ---
 const handleDeleteClient = async (clientId) => {
-  if (window.confirm('¿Estás seguro de que quieres eliminar este cliente? Esta acción también eliminará TODAS sus mascotas y citas asociadas.')) {
-    try {
-      await adminStore.deleteClient(clientId);
-    } catch (error) {
-      alert(`Error al eliminar cliente: ${error.message}`);
-    }
+  if (window.confirm('¿Eliminar cliente y todas sus mascotas asociadas?')) {
+    try { await adminStore.deleteClient(clientId); } catch (error) { alert(error.message); }
   }
 };
 
-// --- NUEVO: Función para abrir modal de edición de mascota ---
+// --- Acciones de Mascota ---
+const openAddPetModal = (clientId) => {
+  adminStore.error = null;
+  currentClientId.value = clientId;
+  newPetForm.value = { name: '', species: 'Perro', breed: '' };
+  showAddPetModal.value = true;
+};
+
+const handleAddPet = async () => {
+  if (!newPetForm.value.name || !currentClientId.value) return;
+  try {
+    await adminStore.createPetForClient(newPetForm.value, currentClientId.value);
+    showAddPetModal.value = false;
+    currentClientId.value = null;
+  } catch (error) { console.error(error); }
+};
+
 const openEditPetModal = (pet) => {
-  // Clonamos el objeto de la mascota para evitar reactividad no deseada
-  // IMPORTANTE: Asegurarnos de que el ID sea un número entero
-  editingPet.value = { 
-    ...pet,
-    id: parseInt(pet.id, 10) // Convertir a número entero
-  };
-  console.log('🐾 Editando mascota con ID:', editingPet.value.id);
+  editingPet.value = { ...pet, id: parseInt(pet.id, 10) };
   adminStore.error = null;
   showEditPetModal.value = true;
 };
 
-// --- NUEVO: Función para actualizar mascota ---
 const handleUpdatePet = async () => {
   if (!editingPet.value.id) return;
-
-  // Asegurarnos de que el ID sea un número
-  const petId = parseInt(editingPet.value.id, 10);
-  console.log('📝 Actualizando mascota ID:', petId);
-
-  const petData = {
-    name: editingPet.value.name,
-    species: editingPet.value.species,
-    breed: editingPet.value.breed
-  };
-
   try {
-    const success = await adminStore.updatePet(petId, petData);
-    if (success) {
-      showEditPetModal.value = false;
-    }
-  } catch (error) {
-    // El error se mostrará en el modal a través del adminStore.error
-    console.error("Error al actualizar mascota:", error.message);
-  }
+    const success = await adminStore.updatePet(parseInt(editingPet.value.id), {
+      name: editingPet.value.name,
+      species: editingPet.value.species,
+      breed: editingPet.value.breed
+    });
+    if (success) showEditPetModal.value = false;
+  } catch (error) { console.error(error); }
 };
 
-// --- NUEVO: Función para eliminar mascota ---
 const handleDeletePet = async (petId, clientId) => {
-  // Asegurarnos de que los IDs sean números
-  const numericPetId = parseInt(petId, 10);
-  const numericClientId = parseInt(clientId, 10);
-  
-  console.log('🗑️ Eliminando mascota ID:', numericPetId, 'del cliente ID:', numericClientId);
-  
-  if (window.confirm('¿Estás seguro de que quieres eliminar esta mascota? Todas sus citas y registros médicos serán eliminados.')) {
-    try {
-      await adminStore.deletePet(numericPetId, numericClientId);
-    } catch (err) {
-      alert(err.message || 'Error al eliminar la mascota');
-    }
+  if (window.confirm('¿Eliminar permanentemente a esta mascota?')) {
+    try { await adminStore.deletePet(parseInt(petId), parseInt(clientId)); } catch (err) { alert(err.message); }
   }
 };
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-100">
+  <div class="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
     
-    <header class="bg-gray-800 text-white shadow-lg">
-      <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-        <router-link :to="{ name: 'AdminDashboard' }" class="text-2xl font-bold flex items-center space-x-2 hover:text-gray-300 transition">
-          <span role="img" aria-label="Escudo">🛡️</span>
-          <h1>Panel de Administración</h1>
+    <header class="bg-slate-900 text-white shadow-sm sticky top-0 z-40">
+      <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
+        <router-link :to="{ name: 'AdminDashboard' }" class="flex items-center gap-3 group">
+          <div class="bg-indigo-500 p-2 rounded-full group-hover:bg-indigo-400 transition shadow-lg shadow-indigo-500/30">
+            <span class="text-xl">🐾</span>
+          </div>
+          <div class="leading-tight">
+            <h1 class="text-lg font-extrabold tracking-wider text-indigo-100">VET MANAGER</h1>
+            <span class="text-[10px] text-slate-400 uppercase font-semibold tracking-widest">Panel Administrativo</span>
+          </div>
         </router-link>
         
-        <div class="flex items-center space-x-4">
-          <span class="text-gray-300 hidden sm:inline">
-            {{ userStore.user?.name || 'Admin' }}
-          </span>
+        <div class="flex items-center gap-4">
+          <div class="hidden md:block text-right">
+            <p class="text-sm font-bold text-white">{{ userStore.user?.name || 'Administrador' }}</p>
+            <p class="text-xs text-indigo-300">Sesión Activa</p>
+          </div>
           <button 
             @click="handleLogout"
-            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm shadow hover:shadow-md"
+            class="text-xs font-bold bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white px-4 py-2 rounded-lg transition border border-slate-700"
           >
-            Cerrar Sesión
+            Salir
           </button>
         </div>
       </nav>
     </header>
 
-    <main class="container mx-auto px-6 py-8">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-4xl font-bold text-gray-700">
-          Gestión de Clientes
-        </h2>
+    <div class="bg-indigo-600 text-white py-8 shadow-xl relative overflow-hidden">
+      <div class="absolute top-0 right-0 opacity-10 text-9xl transform translate-x-10 -translate-y-10 pointer-events-none">🐾</div>
+      <div class="absolute bottom-0 left-10 opacity-10 text-8xl transform -translate-x-10 translate-y-10 pointer-events-none">🦴</div>
+
+      <div class="container mx-auto px-4 sm:px-6 relative z-10 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div>
+          <h2 class="text-3xl font-bold text-white">Base de Datos Veterinaria</h2>
+          <p class="text-indigo-100 mt-1 text-sm font-medium">Administra dueños, mascotas e historiales clínicos.</p>
+        </div>
         <button
           @click="showAddClientModal = true; adminStore.error = null;"
-          class="flex items-center space-x-2 px-5 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition duration-200"
+          class="flex items-center gap-2 bg-amber-400 text-amber-950 px-6 py-3 rounded-xl font-bold shadow-lg shadow-amber-900/20 hover:bg-amber-300 hover:scale-105 transition-all duration-200"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-          </svg>
+          <span class="text-xl">👤</span>
           <span>Registrar Cliente</span>
         </button>
       </div>
+    </div>
 
-      <div v-if="adminStore.error && !adminStore.isLoading && !showAddClientModal && !showEditClientModal && !showAddPetModal && !showEditPetModal" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
-        <p class="font-bold">Error</p>
-        <p>{{ adminStore.error }}</p>
+    <main class="flex-grow container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
+      
+      <div v-if="adminStore.error && !adminStore.isLoading && !showAddClientModal" 
+           class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-8 shadow-sm rounded-r-lg flex items-center animate-pulse">
+        <span class="text-2xl mr-3">⚠️</span>
+        <div>
+          <p class="font-bold">Error del Sistema</p>
+          <p class="text-sm">{{ adminStore.error }}</p>
+        </div>
       </div>
 
-      <div v-if="adminStore.isLoading && adminStore.users.length === 0" class="text-center text-gray-600 py-12">
-        <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p class="mt-4 text-lg">Cargando datos...</p>
+      <div v-if="adminStore.isLoading && adminStore.users.length === 0" class="flex flex-col items-center justify-center py-20">
+        <div class="animate-spin rounded-full h-14 w-14 border-4 border-indigo-500 border-t-transparent mb-4"></div>
+        <p class="text-indigo-900 font-bold text-lg">Cargando registros...</p>
       </div>
       
-      <div class="space-y-6">
+      <div class="space-y-8">
         
-        <div v-if="!adminStore.isLoading && adminStore.usersWithPets.length === 0" class="bg-white p-12 rounded-lg shadow-md text-center text-gray-500">
-          <svg class="mx-auto h-16 w-16 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 00-12.728 0m12.728 0A9.094 9.094 0 0118 18.72zm-1.636-1.636a9.094 9.094 0 01-1.636-1.636m1.636 1.636a9.094 9.094 0 001.636-1.636m-1.636 1.636a9.094 9.094 0 01-1.636-1.636M6.728 18.72a9.094 9.094 0 010-12.728m0 12.728A9.094 9.094 0 006.728 18.72zm-1.636-1.636a9.094 9.094 0 00-1.636-1.636m1.636 1.636a9.094 9.094 0 01-1.636-1.636m1.636 1.636A9.094 9.094 0 005.092 15.45M12 12a3 3 0 100-6 3 3 0 000 6z" />
-          </svg>
-          <h3 class="mt-4 text-xl font-medium text-gray-900">No hay clientes</h3>
-          <p class="mt-1 text-base text-gray-500">Empieza por registrar un nuevo cliente usando el botón verde.</p>
+        <div v-if="!adminStore.isLoading && adminStore.usersWithPets.length === 0" 
+             class="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-16 text-center">
+          <div class="inline-block p-6 bg-slate-50 rounded-full mb-4">
+            <span class="text-5xl grayscale opacity-50">🐕</span>
+          </div>
+          <h3 class="text-2xl font-bold text-slate-700">Sin registros</h3>
+          <p class="text-slate-500 mt-2">No hay clientes registrados en el sistema.</p>
         </div>
         
         <div 
           v-for="client in adminStore.usersWithPets" 
           :key="client.id"
-          class="bg-white p-6 rounded-xl shadow-lg transition-shadow duration-300 hover:shadow-xl"
+          class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg hover:border-indigo-200 transition-all duration-300"
         >
-          <div class="flex justify-between items-start">
-            <div>
-              <h3 class="text-2xl font-bold text-gray-900">{{ client.name }}</h3>
-              <p class="text-gray-600">{{ client.email }}</p>
-              <p class="text-sm text-gray-400 mt-1">ID Cliente: {{ client.id }}</p>
-            </div>
-            <div class="flex-shrink-0 flex space-x-2">
-              <button @click="openEditModal(client)" class="text-sm px-4 py-2 font-medium bg-yellow-400 text-yellow-900 rounded-lg hover:bg-yellow-500 transition-all shadow-sm hover:shadow-md">Editar</button>
-              <button @click="handleDeleteClient(client.id)" class="text-sm px-4 py-2 font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-sm hover:shadow-md">Eliminar</button>
-            </div>
-          </div>
-          
-          <hr class="my-4 border-gray-200">
-          
-          <div class="flex justify-between items-center mb-3">
-            <h4 class="text-xl font-semibold text-indigo-800">Mascotas</h4>
-            <button
-              @click="openAddPetModal(client.id)"
-              class="flex items-center space-x-1 px-3 py-1 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition text-sm"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-              </svg>
-              <span>Añadir</span>
-            </button>
-          </div>
-          
-          <div v-if="client.pets.length === 0" class="text-gray-500 italic text-center py-4">
-            Este cliente no tiene mascotas registradas.
-          </div>
-          
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            
-            <div 
-              v-for="pet in client.pets" 
-              :key="pet.id"
-              class="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between"
-            >
-              <router-link 
-                :to="{ name: 'AdminPetDetail', params: { id: pet.id } }"
-                class="block hover:text-indigo-600 transition"
-              >
-                <p class="font-bold text-indigo-900 flex items-center">
-                  <span class="mr-2 text-lg">🐾</span>
-                  {{ pet.name }}
-                </p>
-                <p class="text-sm text-slate-600 pl-7">{{ pet.species }}<span v-if="pet.breed"> ({{ pet.breed }})</span></p>
-              </router-link>
-
-              <div class="mt-3 pt-3 border-t border-slate-200 flex space-x-2">
-                <button 
-                  @click.stop="openEditPetModal(pet)" 
-                  class="text-xs px-3 py-1 font-medium bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition w-full"
-                >
-                  Editar
-                </button>
-                <button 
-                  @click.stop="handleDeletePet(pet.id, client.id)" 
-                  class="text-xs px-3 py-1 font-medium bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition w-full"
-                >
-                  Borrar
-                </button>
+          <div class="bg-slate-50 px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4 w-full">
+              <div class="h-14 w-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-bold shadow-md shadow-indigo-200">
+                {{ getInitials(client.name) }}
+              </div>
+              <div class="flex-grow">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  {{ client.name }}
+                  <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase tracking-wide">Dueño</span>
+                </h3>
+                <div class="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-1">
+                  <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    {{ client.email }}
+                  </span>
+                  <span class="hidden sm:inline text-slate-300">|</span>
+                  <span class="text-slate-400 text-xs font-mono">
+                    ID: #{{ client.id }}
+                  </span>
+                </div>
               </div>
             </div>
+            
+            <div class="flex items-center gap-3 text-sm">
+              <button @click="openEditModal(client)" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 font-semibold rounded-lg hover:bg-slate-50 hover:text-indigo-600 transition">
+                Editar
+              </button>
+              <button @click="handleDeleteClient(client.id)" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar Cliente">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              </button>
+            </div>
+          </div>
+          
+          <div class="p-6 bg-white">
+            <div class="flex justify-between items-end mb-6 border-b border-slate-100 pb-4">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                  Mascotas Registradas
+                  <span class="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-md text-xs">{{ client.pets.length }}</span>
+                </h4>
+                <p class="text-xs text-slate-400 mt-1">Animales asociados a este dueño</p>
+              </div>
+              <button
+                @click="openAddPetModal(client.id)"
+                class="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition"
+              >
+                <span>+</span> Añadir Mascota
+              </button>
+            </div>
+            
+            <div v-if="client.pets.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              
+              <div 
+                v-for="pet in client.pets" 
+                :key="pet.id"
+                class="group relative overflow-hidden bg-white rounded-xl border-2 border-slate-100 hover:border-amber-300 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+                @click="router.push({ name: 'AdminPetDetail', params: { id: pet.id } })"
+              >
+                <div class="h-2 w-full bg-gradient-to-r from-amber-300 to-orange-400"></div>
+                
+                <div class="p-4 flex items-start gap-4">
+                  <div class="w-12 h-12 rounded-full bg-orange-50 text-2xl flex items-center justify-center border border-orange-100 flex-shrink-0">
+                    <span v-if="pet.species === 'Perro'">🐶</span>
+                    <span v-else-if="pet.species === 'Gato'">🐱</span>
+                    <span v-else-if="pet.species === 'Conejo'">🐰</span>
+                    <span v-else-if="pet.species === 'Ave'">🐦</span>
+                    <span v-else>🐾</span>
+                  </div>
+                  
+                  <div class="min-w-0">
+                    <p class="font-bold text-slate-800 text-lg truncate leading-tight">{{ pet.name }}</p>
+                    <p class="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-0.5">{{ pet.species }}</p>
+                    <p v-if="pet.breed" class="text-xs text-slate-500 truncate mt-1">{{ pet.breed }}</p>
+                  </div>
+                </div>
 
+                <div class="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0">
+                  <button 
+                    @click.stop="openEditPetModal(pet)" 
+                    class="p-1.5 bg-white text-indigo-600 rounded-md shadow border border-slate-100 hover:bg-indigo-50" title="Editar"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                  </button>
+                  <button 
+                    @click.stop="handleDeletePet(pet.id, client.id)" 
+                    class="p-1.5 bg-white text-red-600 rounded-md shadow border border-slate-100 hover:bg-red-50" title="Borrar"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else class="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+              <span class="text-2xl block mb-2 opacity-30">🦴</span>
+              <span class="text-sm text-slate-400 font-medium">Este cliente no tiene mascotas registradas aún.</span>
+            </div>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- Modal: Añadir Cliente -->
-    <div v-if="showAddClientModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
-        <h3 class="text-2xl font-bold mb-6 text-gray-800">Registrar Nuevo Cliente</h3>
-        <form @submit.prevent="handleAddClient" class="space-y-4">
-          <div>
-            <label for="clientName" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-            <input v-model="newClientForm.name" id="clientName" type="text" required class="mt-1 block w-full input-field">
+    <div v-if="showAddClientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" @click="showAddClientModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 border border-slate-100">
+        <div class="bg-indigo-600 px-6 py-4 border-b border-indigo-700">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <span>👤</span> Registrar Nuevo Cliente
+          </h3>
+        </div>
+        <form @submit.prevent="handleAddClient" class="p-6 space-y-5">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
+            <input v-model="newClientForm.name" type="text" required class="input-field bg-slate-50 border-slate-200 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. María González">
           </div>
-          <div>
-            <label for="clientEmail" class="block text-sm font-medium text-gray-700">Email</label>
-            <input v-model="newClientForm.email" id="clientEmail" type="email" required class="mt-1 block w-full input-field">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Correo Electrónico</label>
+            <input v-model="newClientForm.email" type="email" required class="input-field bg-slate-50 border-slate-200 focus:ring-indigo-500 focus:border-indigo-500" placeholder="maria@ejemplo.com">
           </div>
-          <div>
-            <label for="clientPassword" class="block text-sm font-medium text-gray-700">Contraseña</label>
-            <input v-model="newClientForm.password" id="clientPassword" type="password" required class="mt-1 block w-full input-field">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Contraseña</label>
+            <input v-model="newClientForm.password" type="password" required class="input-field bg-slate-50 border-slate-200 focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••">
           </div>
-          
-          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {{ adminStore.error }}
-          </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showAddClientModal = false" class="btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="adminStore.isLoading" class="btn-primary-green">
-              {{ adminStore.isLoading ? 'Guardando...' : 'Guardar Cliente' }}
-            </button>
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showAddClientModal = false" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">CANCELAR</button>
+            <button type="submit" :disabled="adminStore.isLoading" class="px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-500/30 transition">GUARDAR CLIENTE</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Modal: Editar Cliente -->
-    <div v-if="showEditClientModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
-        <h3 class="text-2xl font-bold mb-6 text-gray-800">Editar Cliente</h3>
-        <form @submit.prevent="handleUpdateClient" class="space-y-4">
-          <div>
-            <label for="editClientName" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-            <input v-model="editingClient.name" id="editClientName" type="text" required class="mt-1 block w-full input-field">
+    <div v-if="showEditClientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="showEditClientModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-slate-800 px-6 py-4 border-b border-slate-700">
+          <h3 class="text-lg font-bold text-white">Editar Datos Cliente</h3>
+        </div>
+        <form @submit.prevent="handleUpdateClient" class="p-6 space-y-5">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre</label>
+            <input v-model="editingClient.name" type="text" required class="input-field bg-slate-50">
           </div>
-          <div>
-            <label for="editClientEmail" class="block text-sm font-medium text-gray-700">Email</label>
-            <input v-model="editingClient.email" id="editClientEmail" type="email" required class="mt-1 block w-full input-field">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Email</label>
+            <input v-model="editingClient.email" type="email" required class="input-field bg-slate-50">
           </div>
-          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {{ adminStore.error }}
-          </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showEditClientModal = false" class="btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="adminStore.isLoading" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition disabled:bg-yellow-300">
-              {{ adminStore.isLoading ? 'Actualizando...' : 'Actualizar Cliente' }}
-            </button>
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showEditClientModal = false" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg">CANCELAR</button>
+            <button type="submit" class="px-6 py-2 text-sm font-bold text-white bg-slate-800 hover:bg-black rounded-lg shadow-lg transition">ACTUALIZAR</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Modal: Añadir Mascota -->
-    <div v-if="showAddPetModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
-        <h3 class="text-2xl font-bold mb-6 text-gray-800">Nueva Mascota</h3>
-        <form @submit.prevent="handleAddPet" class="space-y-4">
-          <div>
-            <label for="petName" class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input v-model="newPetForm.name" id="petName" type="text" required class="mt-1 block w-full input-field">
+    <div v-if="showAddPetModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="showAddPetModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-amber-500 px-6 py-4 border-b border-amber-600">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <span>🐾</span> Nueva Mascota
+          </h3>
+        </div>
+        <form @submit.prevent="handleAddPet" class="p-6 space-y-5">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre de la Mascota</label>
+            <input v-model="newPetForm.name" type="text" required class="input-field bg-slate-50" placeholder="Ej. Firulais">
           </div>
-          <div>
-            <label for="petSpecies" class="block text-sm font-medium text-gray-700">Especie</label>
-            <select v-model="newPetForm.species" id="petSpecies" class="mt-1 block w-full input-field">
-              <option>Perro</option>
-              <option>Gato</option>
-              <option>Conejo</option>
-              <option>Otro</option>
-            </select>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Especie</label>
+              <select v-model="newPetForm.species" class="input-field bg-slate-50">
+                <option>Perro</option>
+                <option>Gato</option>
+                <option>Conejo</option>
+                <option>Ave</option>
+                <option>Otro</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Raza</label>
+              <input v-model="newPetForm.breed" type="text" class="input-field bg-slate-50" placeholder="Opcional">
+            </div>
           </div>
-          <div>
-            <label for="petBreed" class="block text-sm font-medium text-gray-700">Raza (Opcional)</label>
-            <input v-model="newPetForm.breed" id="petBreed" type="text" class="mt-1 block w-full input-field">
-          </div>
-          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {{ adminStore.error }}
-          </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showAddPetModal = false" class="btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="adminStore.isLoading" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:bg-indigo-400">
-              {{ adminStore.isLoading ? 'Guardando...' : 'Guardar Mascota' }}
-            </button>
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showAddPetModal = false" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg">CANCELAR</button>
+            <button type="submit" class="px-6 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-lg shadow-amber-500/30 transition">AGREGAR MASCOTA</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Modal: Editar Mascota -->
-    <div v-if="showEditPetModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
-        <h3 class="text-2xl font-bold mb-6 text-gray-800">Editar Mascota</h3>
-        <form @submit.prevent="handleUpdatePet" class="space-y-4">
-          <div>
-            <label for="editPetName" class="block text-sm font-medium text-gray-700">Nombre</label>
-            <input v-model="editingPet.name" id="editPetName" type="text" required class="mt-1 block w-full input-field">
+    <div v-if="showEditPetModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="showEditPetModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-amber-500 px-6 py-4 border-b border-amber-600">
+          <h3 class="text-lg font-bold text-white">Editar Mascota</h3>
+        </div>
+        <form @submit.prevent="handleUpdatePet" class="p-6 space-y-5">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre</label>
+            <input v-model="editingPet.name" type="text" required class="input-field bg-slate-50">
           </div>
-          <div>
-            <label for="editPetSpecies" class="block text-sm font-medium text-gray-700">Especie</label>
-            <select v-model="editingPet.species" id="editPetSpecies" class="mt-1 block w-full input-field">
-              <option>Perro</option>
-              <option>Gato</option>
-              <option>Conejo</option>
-              <option>Otro</option>
-            </select>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Especie</label>
+              <select v-model="editingPet.species" class="input-field bg-slate-50">
+                <option>Perro</option>
+                <option>Gato</option>
+                <option>Conejo</option>
+                <option>Ave</option>
+                <option>Otro</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Raza</label>
+              <input v-model="editingPet.breed" type="text" class="input-field bg-slate-50">
+            </div>
           </div>
-          <div>
-            <label for="editPetBreed" class="block text-sm font-medium text-gray-700">Raza (Opcional)</label>
-            <input v-model="editingPet.breed" id="editPetBreed" type="text" class="mt-1 block w-full input-field">
-          </div>
-
-          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {{ adminStore.error }}
-          </div>
-
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showEditPetModal = false" class="btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" :disabled="adminStore.isLoading" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400">
-              {{ adminStore.isLoading ? 'Actualizando...' : 'Actualizar Mascota' }}
-            </button>
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showEditPetModal = false" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg">CANCELAR</button>
+            <button type="submit" class="px-6 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-lg transition">GUARDAR CAMBIOS</button>
           </div>
         </form>
       </div>

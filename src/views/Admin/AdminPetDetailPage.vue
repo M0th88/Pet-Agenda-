@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAdminStore } from '@/store/AdminStore.js';
 import { useUserStore } from '@/store/UserStore.js';
@@ -11,11 +11,23 @@ const userStore = useUserStore();
 
 const petId = route.params.id;
 
-// Formularios para añadir nuevos registros
+// Formularios
 const newAppointmentForm = ref({ date: '', reason: '' });
 const newRecordForm = ref({ type: 'Vacuna', name: '', date: '' });
 const showAppointmentModal = ref(false);
 const showRecordModal = ref(false);
+
+// Helper para iconos de especie
+const petIcon = computed(() => {
+  const species = adminStore.selectedPetDetails?.pet?.species || '';
+  switch (species) {
+    case 'Perro': return '🐶';
+    case 'Gato': return '🐱';
+    case 'Conejo': return '🐰';
+    case 'Ave': return '🐦';
+    default: return '🐾';
+  }
+});
 
 onMounted(() => {
   adminStore.fetchAdminPetDetails(petId);
@@ -36,153 +48,238 @@ const handleAddRecord = async () => {
     showRecordModal.value = false;
   }
 };
-
-const handleLogout = () => {
-  userStore.logout();
-  router.push({ name: 'Login' });
-};
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100">
-    
-    <header class="bg-gray-800 text-white shadow-lg">
-      <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
-        <router-link :to="{ name: 'AdminDashboard' }" class="text-2xl font-bold flex items-center space-x-2 hover:text-gray-300 transition">
-          <span role="img" aria-label="Escudo">🛡️</span>
-          <h1>Panel de Administración</h1>
-        </router-link>
+  <div class="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
+    <div v-if="adminStore.isLoading && !adminStore.selectedPetDetails" class="flex-grow flex flex-col items-center justify-center py-20">
+      <div class="animate-spin rounded-full h-16 w-16 border-4 border-indigo-600 border-t-transparent mb-4"></div>
+      <p class="text-indigo-900 font-bold text-xl">Cargando expediente...</p>
+    </div>
+
+    <template v-else-if="adminStore.selectedPetDetails">
+      <div class="bg-indigo-700 text-white shadow-xl relative overflow-hidden pt-8 pb-16">
+        <div class="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <svg class="w-64 h-64 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+        </div>
         
-        <div class="flex items-center space-x-4">
-          <span class="text-gray-300 hidden sm:inline">
-            {{ userStore.user?.name || 'Admin' }}
-          </span>
-          <button 
-            @click="handleLogout"
-            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
-          >
-            Cerrar Sesión
-          </button>
+        <div class="container mx-auto px-4 sm:px-6 relative z-10">
+          <div class="absolute top-0 left-4 sm:left-6">
+            <router-link :to="{ name: 'AdminDashboard' }" class="inline-flex items-center gap-2 text-indigo-100 hover:text-white hover:bg-indigo-600 px-4 py-2 rounded-full transition text-sm font-bold uppercase tracking-wide border border-indigo-500/30 bg-indigo-800/20 backdrop-blur-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+              Volver
+            </router-link>
+          </div>
+
+          <div class="flex flex-col items-center text-center mt-4">
+            <div class="relative">
+              <div class="h-36 w-36 rounded-full bg-white text-7xl flex items-center justify-center shadow-2xl border-4 border-amber-400 mb-4 z-10 relative">
+                {{ petIcon }}
+              </div>
+              <div class="absolute -inset-2 bg-amber-400 rounded-full opacity-20 blur-xl animate-pulse"></div>
+            </div>
+            
+            <div class="space-y-2">
+              <div class="flex items-center justify-center gap-3">
+                <h1 class="text-5xl font-extrabold text-white tracking-tight drop-shadow-md">{{ adminStore.selectedPetDetails.pet.name }}</h1>
+                <span class="bg-amber-400 text-amber-950 px-3 py-1 rounded-lg text-sm font-extrabold uppercase shadow-sm transform -rotate-2">
+                  {{ adminStore.selectedPetDetails.pet.species }}
+                </span>
+              </div>
+              <p class="text-indigo-200 text-2xl font-medium">{{ adminStore.selectedPetDetails.pet.breed }}</p>
+              
+              <div class="mt-6 inline-flex items-center bg-indigo-900/40 px-6 py-3 rounded-2xl border border-indigo-500/50 gap-4 backdrop-blur-sm hover:bg-indigo-900/60 transition cursor-default shadow-lg">
+                <div class="h-10 w-10 rounded-full bg-indigo-500 text-white flex items-center justify-center text-lg font-bold shadow-inner ring-2 ring-indigo-400/50">
+                  {{ adminStore.selectedPetDetails.owner.name.charAt(0).toUpperCase() }}
+                </div>
+                <div class="text-left">
+                  <p class="text-[10px] text-indigo-300 uppercase font-bold tracking-widest">Propietario</p>
+                  <p class="text-base font-bold text-white leading-none mb-0.5">{{ adminStore.selectedPetDetails.owner.name }}</p>
+                  <p class="text-xs text-indigo-300 font-mono">{{ adminStore.selectedPetDetails.owner.email }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </nav>
-    </header>
-    <main class="container mx-auto px-6 py-8">
-      
-      <router-link :to="{ name: 'AdminDashboard' }" class="text-indigo-600 hover:text-indigo-800 mb-4 inline-block">
-        &larr; Volver a Gestión de Clientes
-      </router-link>
-
-      <div v-if="adminStore.error && !adminStore.isLoading" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-        <strong class="font-bold">Error: </strong>
-        <span class="block sm:inline">{{ adminStore.error }}</span>
-      </div>
-      
-      <div v-if="adminStore.isLoading && !adminStore.selectedPetDetails" class="text-center text-gray-600 text-xl py-12">
-        Cargando datos de la mascota...
       </div>
 
-      <div v-else-if="adminStore.selectedPetDetails" class="space-y-8">
-        <div class="bg-white p-8 rounded-lg shadow-xl">
-          <h2 class="text-4xl font-bold text-gray-900 mb-2">
-            {{ adminStore.selectedPetDetails.pet.name }}
-          </h2>
-          <p class="text-2xl text-indigo-600 font-medium mb-4">
-            {{ adminStore.selectedPetDetails.pet.species }} ({{ adminStore.selectedPetDetails.pet.breed }})
-          </p>
-          <p class="text-lg text-gray-700">
-            <strong>Dueño:</strong> {{ adminStore.selectedPetDetails.owner.name }} ({{ adminStore.selectedPetDetails.owner.email }})
-          </p>
+      <main class="container mx-auto px-4 sm:px-6 py-8 -mt-12 relative z-20 max-w-6xl pb-20">
+        
+        <div v-if="adminStore.error" class="bg-red-100 border-l-4 border-red-600 text-red-800 p-4 mb-8 rounded-r-lg shadow-md flex items-center gap-3">
+           <span class="text-2xl">🚨</span>
+          <p class="font-bold">{{ adminStore.error }}</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
           
-          <div class="bg-white p-6 rounded-lg shadow-lg">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-2xl font-semibold text-gray-800">Próximas Citas</h3>
-              <button @click="showAppointmentModal = true" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">+ Agendar Cita</button>
+          <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden flex flex-col h-full transform transition-all hover:-translate-y-1 duration-300">
+            <div class="px-6 py-5 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
+              <div>
+                <h3 class="text-xl font-bold text-amber-800 flex items-center gap-2">
+                  <span class="text-2xl">📅</span> Próximas Citas
+                </h3>
+                <p class="text-xs text-amber-600/80 font-medium mt-0.5">Agenda y recordatorios</p>
+              </div>
+              <button 
+                @click="showAppointmentModal = true" 
+                class="px-4 py-2 bg-amber-400 text-amber-950 hover:bg-amber-500 rounded-xl text-xs font-bold uppercase tracking-wide transition shadow-sm hover:shadow-md"
+              >
+                + Agendar
+              </button>
             </div>
-            <div class="space-y-3">
-              <div v-if="!adminStore.selectedPetDetails.appointments || adminStore.selectedPetDetails.appointments.length === 0" class="text-gray-500 italic">No hay citas agendadas.</div>
-              <div v-for="app in adminStore.selectedPetDetails.appointments" :key="app.id" class="p-4 border rounded-lg bg-gray-50">
-                <p><strong>Fecha:</strong> {{ new Date(app.date).toLocaleString('es-CL', { timeZone: 'UTC' }) }}</p>
-                <p><strong>Motivo:</strong> {{ app.reason }}</p>
-                <p><strong>Estado:</strong> {{ app.status }}</p>
+            
+            <div class="p-6 flex-grow bg-white relative">
+              <div class="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full opacity-50 pointer-events-none"></div>
+
+              <div v-if="!adminStore.selectedPetDetails.appointments || adminStore.selectedPetDetails.appointments.length === 0" 
+                   class="h-full flex flex-col items-center justify-center text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400">
+                <span class="text-4xl mb-2 grayscale opacity-20">📆</span>
+                <p class="font-medium">No hay citas programadas</p>
+              </div>
+              
+              <div v-else class="space-y-4 relative z-10">
+                <div 
+                  v-for="app in adminStore.selectedPetDetails.appointments" 
+                  :key="app.id" 
+                  class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-amber-300 transition group"
+                >
+                  <div class="flex gap-4 items-center">
+                    <div class="bg-amber-100 text-amber-700 font-bold rounded-lg p-3 text-center min-w-[60px]">
+                      <span class="block text-xs uppercase">{{ new Date(app.date).toLocaleDateString('es-CL', { month: 'short' }) }}</span>
+                      <span class="block text-xl">{{ new Date(app.date).toLocaleDateString('es-CL', { day: 'numeric' }) }}</span>
+                    </div>
+                    <div>
+                      <p class="font-bold text-slate-800 group-hover:text-amber-700 transition">{{ app.reason }}</p>
+                      <p class="text-sm text-slate-500 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        {{ new Date(app.date).toLocaleTimeString('es-CL', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' }) }}
+                      </p>
+                    </div>
+                  </div>
+                  <span 
+                    class="mt-3 sm:mt-0 px-3 py-1 text-xs rounded-full font-bold uppercase tracking-wider"
+                    :class="app.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'"
+                  >
+                    {{ app.status }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="bg-white p-6 rounded-lg shadow-lg">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-2xl font-semibold text-gray-800">Historial Médico</h3>
-              <button @click="showRecordModal = true" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">+ Añadir Registro</button>
+          <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden flex flex-col h-full transform transition-all hover:-translate-y-1 duration-300">
+            <div class="px-6 py-5 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+              <div>
+                <h3 class="text-xl font-bold text-indigo-900 flex items-center gap-2">
+                  <span class="text-2xl">📋</span> Historial Médico
+                </h3>
+                <p class="text-xs text-indigo-600/80 font-medium mt-0.5">Registro clínico completo</p>
+              </div>
+              <button 
+                @click="showRecordModal = true" 
+                class="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-bold uppercase tracking-wide transition shadow-sm hover:shadow-md"
+              >
+                + Registro
+              </button>
             </div>
-            <div class="space-y-3">
-              <div v-if="!adminStore.selectedPetDetails.records || adminStore.selectedPetDetails.records.length === 0" class="text-gray-500 italic">No hay historial médico.</div>
-              <div v-for="rec in adminStore.selectedPetDetails.records" :key="rec.id" class="p-4 border rounded-lg bg-gray-50">
-                <p><strong>Fecha:</strong> {{ new Date(rec.date).toLocaleDateString('es-CL', { timeZone: 'UTC' }) }}</p>
-                <p><strong>Tipo:</strong> <span class="font-medium" :class="rec.type === 'Vacuna' ? 'text-green-600' : 'text-blue-600'">{{ rec.type }}</span></p>
-                <p><strong>Nombre:</strong> {{ rec.name }}</p>
+            
+            <div class="p-6 flex-grow bg-white relative">
+              <div class="absolute top-0 left-0 w-32 h-32 bg-indigo-50 rounded-br-full opacity-50 pointer-events-none"></div>
+
+              <div v-if="!adminStore.selectedPetDetails.records || adminStore.selectedPetDetails.records.length === 0" 
+                   class="h-full flex flex-col items-center justify-center text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400">
+                <span class="text-4xl mb-2 grayscale opacity-20">📂</span>
+                <p class="font-medium">Historial clínico vacío</p>
+              </div>
+              
+              <div v-else class="space-y-0 divide-y divide-slate-100 border border-slate-100 rounded-xl bg-white overflow-hidden shadow-sm relative z-10">
+                <div v-for="rec in adminStore.selectedPetDetails.records" :key="rec.id" class="p-4 hover:bg-indigo-50/30 transition flex gap-4 items-center group">
+                  <div class="flex-shrink-0 w-14 text-center bg-slate-50 rounded-lg p-1 border border-slate-100 group-hover:border-indigo-200 transition">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase">{{ new Date(rec.date).toLocaleDateString('es-CL', { month: 'short' }) }}</span>
+                    <span class="block text-xl font-bold text-slate-700 group-hover:text-indigo-600">{{ new Date(rec.date).toLocaleDateString('es-CL', { day: 'numeric' }) }}</span>
+                    <span class="block text-[10px] text-slate-400">{{ new Date(rec.date).getFullYear() }}</span>
+                  </div>
+                  <div class="flex-grow">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span 
+                        class="px-2 py-0.5 text-[9px] font-extrabold uppercase rounded border"
+                        :class="{
+                          'bg-green-50 text-green-700 border-green-200': rec.type === 'Vacuna',
+                          'bg-blue-50 text-blue-700 border-blue-200': rec.type === 'Tratamiento',
+                          'bg-red-50 text-red-700 border-red-200': rec.type === 'Cirugía',
+                          'bg-purple-50 text-purple-700 border-purple-200': rec.type === 'Examen',
+                          'bg-gray-50 text-gray-600 border-gray-200': rec.type === 'Observación'
+                        }"
+                      >
+                        {{ rec.type }}
+                      </span>
+                    </div>
+                    <p class="text-slate-800 font-semibold text-sm">{{ rec.name }}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
         </div>
-      </div>
-    </main>
+      </main>
+    </template>
 
-    <div v-if="showAppointmentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
-        <h3 class="text-2xl font-bold mb-6">Agendar Nueva Cita</h3>
-        <form @submit.prevent="handleAddAppointment" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium">Fecha y Hora</label>
-            <input v-model="newAppointmentForm.date" type="datetime-local" required class="mt-1 block w-full input-field">
+    <div v-if="showAppointmentModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" @click="showAppointmentModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border-t-8 border-amber-400 transform scale-100 transition-all">
+        <div class="bg-white px-6 py-6 pb-0">
+          <h3 class="text-2xl font-extrabold text-slate-800">Nueva Cita</h3>
+          <p class="text-slate-500 text-sm mt-1">Programa una visita para {{ adminStore.selectedPetDetails.pet.name }}.</p>
+        </div>
+        <form @submit.prevent="handleAddAppointment" class="p-6 space-y-5">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha y Hora</label>
+            <input v-model="newAppointmentForm.date" type="datetime-local" required class="input-field bg-slate-50 border-slate-200 focus:ring-amber-400 focus:border-amber-400">
           </div>
-          <div>
-            <label class="block text-sm font-medium">Motivo</label>
-            <input v-model="newAppointmentForm.reason" type="text" required class="mt-1 block w-full input-field">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Motivo</label>
+            <input v-model="newAppointmentForm.reason" type="text" required class="input-field bg-slate-50 border-slate-200 focus:ring-amber-400 focus:border-amber-400" placeholder="Ej. Control sano">
           </div>
-          <div v-if="adminStore.error && !adminStore.isLoading" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {{ adminStore.error }}
-          </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showAppointmentModal = false" class="btn-secondary">Cancelar</button>
-            <button type="submit" :disabled="adminStore.isLoading" class="btn-primary-green">
-              {{ adminStore.isLoading ? '...' : 'Guardar Cita' }}
-            </button>
+          
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showAppointmentModal = false" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">CANCELAR</button>
+            <button type="submit" :disabled="adminStore.isLoading" class="px-6 py-2 text-sm font-bold text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-lg shadow-amber-200 transition">CONFIRMAR</button>
           </div>
         </form>
       </div>
     </div>
 
-    <div v-if="showRecordModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
-        <h3 class="text-2xl font-bold mb-6">Añadir Registro Médico</h3>
-        <form @submit.prevent="handleAddRecord" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium">Fecha</label>
-            <input v-model="newRecordForm.date" type="date" required class="mt-1 block w-full input-field">
+    <div v-if="showRecordModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="showRecordModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border-t-8 border-indigo-600 transform scale-100 transition-all">
+        <div class="bg-white px-6 py-6 pb-0">
+          <h3 class="text-2xl font-extrabold text-slate-800">Nuevo Registro</h3>
+          <p class="text-slate-500 text-sm mt-1">Añade un evento al historial médico.</p>
+        </div>
+        <form @submit.prevent="handleAddRecord" class="p-6 space-y-5">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
+            <input v-model="newRecordForm.date" type="date" required class="input-field bg-slate-50 border-slate-200 focus:ring-indigo-500 focus:border-indigo-500">
           </div>
-          <div>
-            <label class="block text-sm font-medium">Tipo</label>
-            <select v-model="newRecordForm.type" class="mt-1 block w-full input-field">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</label>
+            <select v-model="newRecordForm.type" class="input-field bg-slate-50 border-slate-200 focus:ring-indigo-500 focus:border-indigo-500">
               <option>Vacuna</option>
               <option>Tratamiento</option>
               <option>Cirugía</option>
               <option>Observación</option>
+              <option>Examen</option>
             </select>
           </div>
-          <div>
-            <label class="block text-sm font-medium">Nombre / Descripción</label>
-            <input v-model="newRecordForm.name" type="text" required class="mt-1 block w-full input-field">
+          <div class="space-y-1">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
+            <input v-model="newRecordForm.name" type="text" required class="input-field bg-slate-50 border-slate-200 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. Vacuna Óctuple">
           </div>
-           <div v-if="adminStore.error && !adminStore.isLoading" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {{ adminStore.error }}
-          </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showRecordModal = false" class="btn-secondary">Cancelar</button>
-            <button type="submit" :disabled="adminStore.isLoading" class="btn-primary-blue">
-              {{ adminStore.isLoading ? '...' : 'Guardar Registro' }}
-            </button>
+
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showRecordModal = false" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">CANCELAR</button>
+            <button type="submit" :disabled="adminStore.isLoading" class="px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-200 transition">GUARDAR</button>
           </div>
         </form>
       </div>
