@@ -21,6 +21,10 @@ const newPetForm = ref({ name: '', species: 'Perro', breed: '' });
 const showEditClientModal = ref(false);
 const editingClient = ref({ id: null, name: '', email: '' });
 
+// --- Lógica para modal "Editar Mascota" ---
+const showEditPetModal = ref(false);
+const editingPet = ref({ id: null, userId: null, name: '', species: '', breed: '' });
+
 
 onMounted(() => {
   adminStore.fetchAllData();
@@ -38,16 +42,21 @@ const handleAddClient = async () => {
     return;
   };
   
-  await adminStore.createClient(newClientForm.value);
-  
-  if (!adminStore.error) {
+  try {
+    await adminStore.createClient(newClientForm.value);
+    // Si la acción del store fue exitosa (no lanzó error), cerramos el modal
     showAddClientModal.value = false;
     newClientForm.value = { name: '', email: '', password: '' };
+  } catch (error) {
+    // El error ya es manejado y asignado en el store,
+    // así que se mostrará en el modal. Solo logueamos en consola.
+    console.error("Error al crear cliente:", error.message);
   }
 };
 
 // --- (Función para abrir modal de mascota) ---
 const openAddPetModal = (clientId) => {
+  adminStore.error = null; // Limpiamos errores de otros modales
   currentClientId.value = clientId;
   newPetForm.value = { name: '', species: 'Perro', breed: '' };
   showAddPetModal.value = true;
@@ -56,44 +65,110 @@ const openAddPetModal = (clientId) => {
 // --- (Función para añadir mascota) ---
 const handleAddPet = async () => {
   if (!newPetForm.value.name || !currentClientId.value) return;
-  await adminStore.createPetForClient(newPetForm.value, currentClientId.value);
-  if (!adminStore.error) {
+  
+  try {
+    await adminStore.createPetForClient(newPetForm.value, currentClientId.value);
+    // Si no hay error, cerramos modal
     showAddPetModal.value = false;
     currentClientId.value = null;
+  } catch (error) {
+    console.error("Error al añadir mascota:", error.message);
   }
 };
 
-// --- (Función para abrir modal de edición) ---
+// --- (Función para abrir modal de edición de cliente) ---
 const openEditModal = (client) => {
   editingClient.value = { id: client.id, name: client.name, email: client.email };
   adminStore.error = null;
   showEditClientModal.value = true;
 };
 
-// --- (Función para guardar edición) ---
+// --- (Función para guardar edición de cliente) ---
 const handleUpdateClient = async () => {
   if (!editingClient.value.id || !editingClient.value.name || !editingClient.value.email) {
     return;
   }
   
-  const success = await adminStore.updateClient(editingClient.value.id, {
-    name: editingClient.value.name,
-    email: editingClient.value.email
-  });
+  try {
+    const success = await adminStore.updateClient(editingClient.value.id, {
+      name: editingClient.value.name,
+      email: editingClient.value.email
+    });
 
-  if (success) {
-    showEditClientModal.value = false;
-    editingClient.value = { id: null, name: '', email: '' };
+    if (success) {
+      showEditClientModal.value = false;
+      editingClient.value = { id: null, name: '', email: '' };
+    }
+  } catch (error) {
+    console.error("Error al actualizar cliente:", error.message);
   }
 };
 
-// --- (Función para eliminar) ---
+// --- (Función para eliminar cliente) ---
 const handleDeleteClient = async (clientId) => {
   if (window.confirm('¿Estás seguro de que quieres eliminar este cliente? Esta acción también eliminará TODAS sus mascotas y citas asociadas.')) {
-    await adminStore.deleteClient(clientId);
+    try {
+      await adminStore.deleteClient(clientId);
+    } catch (error) {
+      alert(`Error al eliminar cliente: ${error.message}`);
+    }
   }
 };
 
+// --- NUEVO: Función para abrir modal de edición de mascota ---
+const openEditPetModal = (pet) => {
+  // Clonamos el objeto de la mascota para evitar reactividad no deseada
+  // IMPORTANTE: Asegurarnos de que el ID sea un número entero
+  editingPet.value = { 
+    ...pet,
+    id: parseInt(pet.id, 10) // Convertir a número entero
+  };
+  console.log('🐾 Editando mascota con ID:', editingPet.value.id);
+  adminStore.error = null;
+  showEditPetModal.value = true;
+};
+
+// --- NUEVO: Función para actualizar mascota ---
+const handleUpdatePet = async () => {
+  if (!editingPet.value.id) return;
+
+  // Asegurarnos de que el ID sea un número
+  const petId = parseInt(editingPet.value.id, 10);
+  console.log('📝 Actualizando mascota ID:', petId);
+
+  const petData = {
+    name: editingPet.value.name,
+    species: editingPet.value.species,
+    breed: editingPet.value.breed
+  };
+
+  try {
+    const success = await adminStore.updatePet(petId, petData);
+    if (success) {
+      showEditPetModal.value = false;
+    }
+  } catch (error) {
+    // El error se mostrará en el modal a través del adminStore.error
+    console.error("Error al actualizar mascota:", error.message);
+  }
+};
+
+// --- NUEVO: Función para eliminar mascota ---
+const handleDeletePet = async (petId, clientId) => {
+  // Asegurarnos de que los IDs sean números
+  const numericPetId = parseInt(petId, 10);
+  const numericClientId = parseInt(clientId, 10);
+  
+  console.log('🗑️ Eliminando mascota ID:', numericPetId, 'del cliente ID:', numericClientId);
+  
+  if (window.confirm('¿Estás seguro de que quieres eliminar esta mascota? Todas sus citas y registros médicos serán eliminados.')) {
+    try {
+      await adminStore.deletePet(numericPetId, numericClientId);
+    } catch (err) {
+      alert(err.message || 'Error al eliminar la mascota');
+    }
+  }
+};
 </script>
 
 <template>
@@ -119,6 +194,7 @@ const handleDeleteClient = async (clientId) => {
         </div>
       </nav>
     </header>
+
     <main class="container mx-auto px-6 py-8">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-4xl font-bold text-gray-700">
@@ -135,7 +211,7 @@ const handleDeleteClient = async (clientId) => {
         </button>
       </div>
 
-      <div v-if="adminStore.error && !adminStore.isLoading" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+      <div v-if="adminStore.error && !adminStore.isLoading && !showAddClientModal && !showEditClientModal && !showAddPetModal && !showEditPetModal" class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
         <p class="font-bold">Error</p>
         <p>{{ adminStore.error }}</p>
       </div>
@@ -148,9 +224,9 @@ const handleDeleteClient = async (clientId) => {
         <p class="mt-4 text-lg">Cargando datos...</p>
       </div>
       
-      <div v-else class="space-y-6">
+      <div class="space-y-6">
         
-        <div v-if="adminStore.usersWithPets.length === 0" class="bg-white p-12 rounded-lg shadow-md text-center text-gray-500">
+        <div v-if="!adminStore.isLoading && adminStore.usersWithPets.length === 0" class="bg-white p-12 rounded-lg shadow-md text-center text-gray-500">
           <svg class="mx-auto h-16 w-16 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 00-12.728 0m12.728 0A9.094 9.094 0 0118 18.72zm-1.636-1.636a9.094 9.094 0 01-1.636-1.636m1.636 1.636a9.094 9.094 0 001.636-1.636m-1.636 1.636a9.094 9.094 0 01-1.636-1.636M6.728 18.72a9.094 9.094 0 010-12.728m0 12.728A9.094 9.094 0 006.728 18.72zm-1.636-1.636a9.094 9.094 0 00-1.636-1.636m1.636 1.636a9.094 9.094 0 01-1.636-1.636m1.636 1.636A9.094 9.094 0 005.092 15.45M12 12a3 3 0 100-6 3 3 0 000 6z" />
           </svg>
@@ -195,23 +271,45 @@ const handleDeleteClient = async (clientId) => {
           </div>
           
           <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <router-link 
+            
+            <div 
               v-for="pet in client.pets" 
-              :key="pet.id" 
-              :to="{ name: 'AdminPetDetail', params: { id: pet.id } }"
-              class="block bg-slate-50 p-4 rounded-lg border border-slate-200 hover:bg-indigo-50 hover:border-indigo-400 transition-all duration-200 ease-in-out cursor-pointer shadow-sm hover:shadow-md"
+              :key="pet.id"
+              class="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between"
             >
-              <p class="font-bold text-indigo-900 flex items-center">
-                <span class="mr-2 text-lg">🐾</span>
-                {{ pet.name }}
-              </p>
-              <p class="text-sm text-slate-600 pl-7">{{ pet.species }}<span v-if="pet.breed"> ({{ pet.breed }})</span></p>
-            </router-link>
+              <router-link 
+                :to="{ name: 'AdminPetDetail', params: { id: pet.id } }"
+                class="block hover:text-indigo-600 transition"
+              >
+                <p class="font-bold text-indigo-900 flex items-center">
+                  <span class="mr-2 text-lg">🐾</span>
+                  {{ pet.name }}
+                </p>
+                <p class="text-sm text-slate-600 pl-7">{{ pet.species }}<span v-if="pet.breed"> ({{ pet.breed }})</span></p>
+              </router-link>
+
+              <div class="mt-3 pt-3 border-t border-slate-200 flex space-x-2">
+                <button 
+                  @click.stop="openEditPetModal(pet)" 
+                  class="text-xs px-3 py-1 font-medium bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition w-full"
+                >
+                  Editar
+                </button>
+                <button 
+                  @click.stop="handleDeletePet(pet.id, client.id)" 
+                  class="text-xs px-3 py-1 font-medium bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition w-full"
+                >
+                  Borrar
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
     </main>
 
+    <!-- Modal: Añadir Cliente -->
     <div v-if="showAddClientModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
         <h3 class="text-2xl font-bold mb-6 text-gray-800">Registrar Nuevo Cliente</h3>
@@ -229,7 +327,7 @@ const handleDeleteClient = async (clientId) => {
             <input v-model="newClientForm.password" id="clientPassword" type="password" required class="mt-1 block w-full input-field">
           </div>
           
-          <div v-if="adminStore.error && !adminStore.isLoading" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
             {{ adminStore.error }}
           </div>
           <div class="flex justify-end space-x-4 pt-4">
@@ -244,6 +342,7 @@ const handleDeleteClient = async (clientId) => {
       </div>
     </div>
 
+    <!-- Modal: Editar Cliente -->
     <div v-if="showEditClientModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
         <h3 class="text-2xl font-bold mb-6 text-gray-800">Editar Cliente</h3>
@@ -256,7 +355,7 @@ const handleDeleteClient = async (clientId) => {
             <label for="editClientEmail" class="block text-sm font-medium text-gray-700">Email</label>
             <input v-model="editingClient.email" id="editClientEmail" type="email" required class="mt-1 block w-full input-field">
           </div>
-          <div v-if="adminStore.error && !adminStore.isLoading" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
             {{ adminStore.error }}
           </div>
           <div class="flex justify-end space-x-4 pt-4">
@@ -271,6 +370,7 @@ const handleDeleteClient = async (clientId) => {
       </div>
     </div>
 
+    <!-- Modal: Añadir Mascota -->
     <div v-if="showAddPetModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
         <h3 class="text-2xl font-bold mb-6 text-gray-800">Nueva Mascota</h3>
@@ -292,12 +392,54 @@ const handleDeleteClient = async (clientId) => {
             <label for="petBreed" class="block text-sm font-medium text-gray-700">Raza (Opcional)</label>
             <input v-model="newPetForm.breed" id="petBreed" type="text" class="mt-1 block w-full input-field">
           </div>
+          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+            {{ adminStore.error }}
+          </div>
           <div class="flex justify-end space-x-4 pt-4">
             <button type="button" @click="showAddPetModal = false" class="btn-secondary">
               Cancelar
             </button>
             <button type="submit" :disabled="adminStore.isLoading" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:bg-indigo-400">
               {{ adminStore.isLoading ? 'Guardando...' : 'Guardar Mascota' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Editar Mascota -->
+    <div v-if="showEditPetModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
+        <h3 class="text-2xl font-bold mb-6 text-gray-800">Editar Mascota</h3>
+        <form @submit.prevent="handleUpdatePet" class="space-y-4">
+          <div>
+            <label for="editPetName" class="block text-sm font-medium text-gray-700">Nombre</label>
+            <input v-model="editingPet.name" id="editPetName" type="text" required class="mt-1 block w-full input-field">
+          </div>
+          <div>
+            <label for="editPetSpecies" class="block text-sm font-medium text-gray-700">Especie</label>
+            <select v-model="editingPet.species" id="editPetSpecies" class="mt-1 block w-full input-field">
+              <option>Perro</option>
+              <option>Gato</option>
+              <option>Conejo</option>
+              <option>Otro</option>
+            </select>
+          </div>
+          <div>
+            <label for="editPetBreed" class="block text-sm font-medium text-gray-700">Raza (Opcional)</label>
+            <input v-model="editingPet.breed" id="editPetBreed" type="text" class="mt-1 block w-full input-field">
+          </div>
+
+          <div v-if="adminStore.error" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+            {{ adminStore.error }}
+          </div>
+
+          <div class="flex justify-end space-x-4 pt-4">
+            <button type="button" @click="showEditPetModal = false" class="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" :disabled="adminStore.isLoading" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400">
+              {{ adminStore.isLoading ? 'Actualizando...' : 'Actualizar Mascota' }}
             </button>
           </div>
         </form>

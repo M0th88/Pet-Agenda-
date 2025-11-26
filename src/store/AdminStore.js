@@ -17,7 +17,7 @@ export const useAdminStore = defineStore('admin', {
 
   actions: {
     
-    // Acción para LEER clientes (Sin cambios)
+    // Acción para LEER clientes
     async fetchAllData() {
       const userStore = useUserStore();
       if (!userStore.isAdmin) {
@@ -39,8 +39,8 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    // --- ACCIÓN PARA CREAR CLIENTE (MODIFICADA) ---
-    async createClient(clientData) { // clientData es { name, email, password }
+    // Acción para CREAR CLIENTE
+    async createClient(clientData) {
       const userStore = useUserStore();
       if (!userStore.isAdmin) {
         this.error = "No tienes permisos.";
@@ -52,7 +52,6 @@ export const useAdminStore = defineStore('admin', {
         const response = await fetch(`${API_URL}/admin/clients`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // CAMBIO: Ahora enviamos el objeto completo, incluida la contraseña
           body: JSON.stringify(clientData), 
         });
         const data = await response.json();
@@ -62,12 +61,13 @@ export const useAdminStore = defineStore('admin', {
         this.users.push(data); 
       } catch (err) {
         this.error = err.message;
+        throw err;
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Acción para LEER detalles de UNA mascota (Sin cambios)
+    // Acción para LEER detalles de UNA mascota
     async fetchAdminPetDetails(petId) {
       const userStore = useUserStore();
       if (!userStore.isAdmin) {
@@ -91,7 +91,7 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    // Acción para CREAR una mascota (Sin cambios)
+    // Acción para CREAR una mascota
     async createPetForClient(petData, userId) {
       const userStore = useUserStore();
       if (!userStore.isAdmin) {
@@ -117,12 +117,13 @@ export const useAdminStore = defineStore('admin', {
         }
       } catch (err) {
         this.error = err.message;
+        throw err;
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Acción para CREAR una cita (Sin cambios)
+    // Acción para CREAR una cita
     async addAppointment(appointmentData) {
       const userStore = useUserStore();
       if (!userStore.isAdmin || !this.selectedPetDetails) {
@@ -148,12 +149,13 @@ export const useAdminStore = defineStore('admin', {
         this.selectedPetDetails.appointments.push(newAppointment);
       } catch (err) {
         this.error = err.message;
+        throw err;
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Acción para CREAR un registro médico (Sin cambios)
+    // Acción para CREAR un registro médico
     async addMedicalRecord(recordData) {
       const userStore = useUserStore();
       if (!userStore.isAdmin || !this.selectedPetDetails) {
@@ -179,17 +181,18 @@ export const useAdminStore = defineStore('admin', {
         this.selectedPetDetails.records.push(newRecord);
       } catch (err) {
         this.error = err.message;
+        throw err;
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Acción para ELIMINAR un cliente (Sin cambios)
+    // Acción para ELIMINAR un cliente
     async deleteClient(clientId) {
       const userStore = useUserStore();
       if (!userStore.isAdmin) {
         this.error = "No tienes permisos.";
-        return;
+        return false;
       }
       this.isLoading = true;
       this.error = null;
@@ -202,14 +205,16 @@ export const useAdminStore = defineStore('admin', {
           throw new Error(data.error || 'No se pudo eliminar el cliente');
         }
         this.users = this.users.filter(user => user.id !== clientId);
+        return true;
       } catch (err) {
         this.error = err.message;
+        throw err;
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Acción para EDITAR un cliente (Sin cambios)
+    // Acción para EDITAR un cliente
     async updateClient(clientId, clientData) {
       const userStore = useUserStore();
       if (!userStore.isAdmin) {
@@ -235,13 +240,117 @@ export const useAdminStore = defineStore('admin', {
             ...updatedUser      
           };
         }
-        return true; // Éxito
+        return true;
       } catch (err) {
         this.error = err.message;
-        return false; // Falla
+        throw err;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    // Acción para EDITAR una mascota
+    async updatePet(petId, petData) {
+      const userStore = useUserStore();
+      if (!userStore.isAdmin) {
+        this.error = "No tienes permisos.";
+        return false;
+      }
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        console.log('🔍 Llamando a:', `${API_URL}/admin/pets/${petId}`);
+        console.log('📦 Datos enviados:', petData);
+        
+        const response = await fetch(`${API_URL}/admin/pets/${petId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(petData),
+        });
+
+        console.log('📊 Status:', response.status);
+        console.log('📋 Headers:', response.headers.get('content-type'));
+        
+        const textResponse = await response.text();
+        console.log('📄 Respuesta raw:', textResponse);
+
+        let updatedPet;
+        try {
+          updatedPet = JSON.parse(textResponse);
+        } catch (parseError) {
+          console.error('❌ Error al parsear JSON:', parseError);
+          throw new Error(`El servidor devolvió HTML en lugar de JSON. Respuesta: ${textResponse.substring(0, 100)}...`);
+        }
+
+        if (!response.ok) {
+          throw new Error(updatedPet.error || 'No se pudo actualizar la mascota');
+        }
+
+        // 1. Actualizar la vista de detalle (AdminPetDetailPage)
+        if (this.selectedPetDetails && this.selectedPetDetails.pet.id === petId) {
+          this.selectedPetDetails.pet = { ...this.selectedPetDetails.pet, ...updatedPet };
+        }
+
+        // 2. Actualizar la lista de mascotas en el dashboard principal (AdminDashboardPage)
+        const client = this.users.find(u => u.id === updatedPet.userId);
+        if (client) {
+          const petIndex = client.pets.findIndex(p => p.id === petId);
+          if (petIndex !== -1) {
+            client.pets[petIndex] = updatedPet;
+          }
+        }
+        
+        return true;
+      } catch (err) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    // Acción para ELIMINAR una mascota
+    async deletePet(petId, userId) {
+      const userStore = useUserStore();
+      if (!userStore.isAdmin) {
+        this.error = "No tienes permisos.";
+        return false;
+      }
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        const response = await fetch(`${API_URL}/admin/pets/${petId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'No se pudo eliminar la mascota');
+        }
+
+        // 1. Quitar de la lista de mascotas en el dashboard principal
+        if (userId) {
+          const client = this.users.find(u => u.id === userId);
+          if (client) {
+            client.pets = client.pets.filter(p => p.id !== petId);
+          }
+        }
+
+        // 2. Limpiar la vista de detalle si era la mascota seleccionada
+        if (this.selectedPetDetails && this.selectedPetDetails.pet.id === petId) {
+          this.selectedPetDetails = null;
+        }
+
+        return true;
+      } catch (err) {
+        this.error = err.message;
+        throw err;
       } finally {
         this.isLoading = false;
       }
     }
+
   },
 });
